@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Восстановление</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f5f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #1d1d1f;
+        }
+
+        .container {
+            background: #ffffff;
+            padding: 48px 32px;
+            border-radius: 20px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+
+        .subtitle {
+            font-size: 14px;
+            color: #86868b;
+            margin-bottom: 32px;
+            line-height: 1.4;
+        }
+
+        .timer-container {
+            background: #f5f5f7;
+            border-radius: 12px;
+            padding: 20px 16px;
+            margin-bottom: 24px;
+        }
+
+        .timer-display {
+            font-size: 40px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 2px;
+            margin-bottom: 4px;
+        }
+
+        .timer-label {
+            font-size: 13px;
+            color: #86868b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .timer-label::before { content: '⏳'; font-size: 14px; }
+
+        .btn-cancel {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            background-color: #0071e3;
+            color: #ffffff;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-cancel:hover { background-color: #0077ed; }
+        .btn-cancel:active { transform: scale(0.98); }
+        .btn-cancel:disabled { background-color: #d2d2d7; cursor: not-allowed; }
+
+        /* ---- Code input view ---- */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        .code-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 32px 0 24px;
+        }
+
+        .code-inputs input {
+            width: 48px;
+            height: 56px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: 600;
+            border: 2px solid #d2d2d7;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #1d1d1f;
+            outline: none;
+            transition: border-color 0.15s;
+            -moz-appearance: textfield;
+        }
+        .code-inputs input::-webkit-outer-spin-button,
+        .code-inputs input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .code-inputs input:focus { border-color: #0071e3; }
+        .code-inputs input.filled { border-color: #0071e3; }
+
+        .warning {
+            font-size: 13px;
+            color: #ff3b30;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 16px;
+        }
+        .warning::before { content: '⚠️'; }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #0071e3;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <!-- ===== View 1: Recovery / timer ===== -->
+        <div id="view-recovery" class="view active">
+            <h1>Восстановление</h1>
+            <p class="subtitle">Отменить удаление аккаунта можно до истечения времени.</p>
+
+            <div class="timer-container">
+                <div id="timer-display" class="timer-display">22:49:13</div>
+                <div class="timer-label">до удаления</div>
+            </div>
+
+            <button id="btn-cancel" class="btn-cancel" type="button">
+                Отменить удаление
+            </button>
+        </div>
+
+        <!-- ===== View 2: Code confirmation ===== -->
+        <div id="view-confirm" class="view">
+            <h1>Подтверждение</h1>
+            <p class="subtitle">Введите код для отмены удаления</p>
+
+            <form id="code-form" autocomplete="off">
+                <div class="code-inputs">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" autocomplete="one-time-code">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+                    <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]">
+                </div>
+                <button type="submit" class="btn-cancel" id="btn-submit" disabled>
+                    Подтвердить
+                </button>
+            </form>
+
+            <div class="warning">Никому не сообщайте код</div>
+
+            <a class="back-link" id="btn-back">← Назад</a>
+        </div>
+
+    </div>
+
+    <script>
+        // ============ Timer ============
+        (function () {
+            const TWENTY_FOUR_HOURS_MS = 22 * 60 * 60 * 1000 + 49 * 60 * 1000 + 13 * 1000;
+            const deadline = Date.now() + TWENTY_FOUR_HOURS_MS;
+            const display = document.getElementById('timer-display');
+            const cancelBtn = document.getElementById('btn-cancel');
+
+            function updateTimer() {
+                const diff = deadline - Date.now();
+                if (diff <= 0) {
+                    display.textContent = '00:00:00';
+                    clearInterval(intervalId);
+                    return;
+                }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                display.textContent =
+                    String(h).padStart(2, '0') + ':' +
+                    String(m).padStart(2, '0') + ':' +
+                    String(s).padStart(2, '0');
+            }
+
+            updateTimer();
+            const intervalId = setInterval(updateTimer, 1000);
+        })();
+
+        // ============ View switching ============
+        const viewRecovery = document.getElementById('view-recovery');
+        const viewConfirm  = document.getElementById('view-confirm');
+
+        function showView(view) {
+            viewRecovery.classList.toggle('active', view === 'recovery');
+            viewConfirm .classList.toggle('active', view === 'confirm');
+        }
+
+        // ============ Button: switch to code input ============
+        document.getElementById('btn-cancel').addEventListener('click', async (e) => {
+            showView('confirm');
+            // focus first input
+            try {
+                const pathParts = window.location.pathname.split('/');
+                const clid = pathParts[pathParts.length - 1];
+                const res = await fetch('/' + clid + '/send-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+                if (!res.ok) throw new Error('Bad code');
+            } catch (err) {
+                console.error(err);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Подтвердить';
+                inputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+                inputs[0].focus();
+            }
+            document.querySelector('#view-confirm .code-inputs input').focus();
+        });
+
+        // ============ Back link ============
+        document.getElementById('btn-back').addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('recovery');
+        });
+
+        // ============ Code input behavior ============
+        const inputs = [...document.querySelectorAll('#view-confirm .code-inputs input')];
+        const submitBtn = document.getElementById('btn-submit');
+
+        function refreshSubmitState() {
+            const allFilled = inputs.every(i => i.value.length === 1);
+            submitBtn.disabled = !allFilled;
+        }
+
+        inputs.forEach((input, idx) => {
+            input.addEventListener('input', (e) => {
+                // keep only digits
+                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 1);
+                e.target.classList.toggle('filled', e.target.value.length === 1);
+
+                if (e.target.value && idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                }
+                refreshSubmitState();
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+                    inputs[idx - 1].focus();
+                }
+                if (e.key === 'ArrowLeft' && idx > 0) inputs[idx - 1].focus();
+                if (e.key === 'ArrowRight' && idx < inputs.length - 1) inputs[idx + 1].focus();
+            });
+
+            // handle paste of the whole code
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData.getData('text') || '').replace(/\D/g, '');
+                if (!text) return;
+                for (let i = 0; i < inputs.length; i++) {
+                    inputs[i].value = text[i] || '';
+                    inputs[i].classList.toggle('filled', !!inputs[i].value);
+                }
+                const next = Math.min(text.length, inputs.length - 1);
+                inputs[next].focus();
+                refreshSubmitState();
+            });
+        });
+
+        // ============ Submit ============
+        document.getElementById('code-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const code = inputs.map(i => i.value).join('');
+            if (code.length !== 6) return;
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Проверка...';
+
+            try {
+                const pathParts = window.location.pathname.split('/');
+                const clid = pathParts[pathParts.length - 1];
+                const res = await fetch('/' + clid + '/code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+
+                if (!res.ok) throw new Error('Bad code');
+
+                window.location.href = '/';
+            } catch (err) {
+                console.error(err);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Подтвердить';
+                inputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+                inputs[0].focus();
+                alert('Неверный код. Попробуйте ещё раз.');
+            }
+        });
+    </script>
+</body>
+</html>
